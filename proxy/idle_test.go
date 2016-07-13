@@ -37,9 +37,9 @@ func TestIdleConns(t *testing.T) {
 	d0 := doc(128)
 	d1 := doc(256)
 
-	s0 := httptesting.Pool.Get(handler(d0))
+	s0 := httptesting.Pool.GetKeepAlive(handler(d0))
 	defer httptesting.Pool.Release(s0)
-	s1 := httptesting.Pool.Get(handler(d1))
+	s1 := httptesting.Pool.GetKeepAlive(handler(d1))
 	defer httptesting.Pool.Release(s1)
 
 	const (

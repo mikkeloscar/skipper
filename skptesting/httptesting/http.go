@@ -10,16 +10,18 @@ import (
 )
 
 type handler struct {
-	handler http.Handler
-	busy    bool
+	handler   http.Handler
+	keepAlive bool
+	busy      bool
 }
 
 type servers map[*httptest.Server]*handler
 
 type message struct {
-	handler  http.Handler
-	server   *httptest.Server
-	response chan *httptest.Server
+	handler   http.Handler
+	keepAlive bool
+	server    *httptest.Server
+	response  chan *httptest.Server
 }
 
 type ServerPool struct {
@@ -42,20 +44,24 @@ var (
 )
 
 func (h *handler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
-	rsp.Header().Set("Connection", "close")
+	if !h.keepAlive {
+		rsp.Header().Set("Connection", "close")
+	}
+
 	h.handler.ServeHTTP(rsp, req)
 }
 
-func (s servers) get(h http.Handler) *httptest.Server {
+func (s servers) get(h http.Handler, keepAlive bool) *httptest.Server {
 	for si, hi := range s {
 		if !hi.busy {
 			hi.handler = h
+			hi.keepAlive = keepAlive
 			hi.busy = true
 			return si
 		}
 	}
 
-	hi := &handler{h, true}
+	hi := &handler{h, keepAlive, true}
 	si := httptest.NewServer(hi)
 	s[si] = hi
 	return si
@@ -85,7 +91,7 @@ func NewServerPool() *ServerPool {
 		for {
 			select {
 			case m := <-get:
-				m.response <- s.get(m.handler)
+				m.response <- s.get(m.handler, m.keepAlive)
 			case m := <-release:
 				s.release(m.server)
 				m.response <- nil
@@ -99,12 +105,23 @@ func NewServerPool() *ServerPool {
 	return &ServerPool{get, release, quit}
 }
 
+func (sp *ServerPool) getServer(h http.Handler, keepAlive bool) *httptest.Server {
+	m := message{handler: h, keepAlive: keepAlive, response: make(chan *httptest.Server)}
+	sp.get <- m
+	return <-m.response
+}
+
 // Takes a server from the pool. If there is no available idle server,
 // then it creates one. It sets the handler of the server to h.
 func (sp *ServerPool) Get(h http.Handler) *httptest.Server {
-	m := message{handler: h, response: make(chan *httptest.Server)}
-	sp.get <- m
-	return <-m.response
+	return sp.getServer(h, false)
+}
+
+// Takes a server from the pool. If there is no available idle server,
+// then it creates one. It sets the handler of the server to h and allows
+// keep-alive by not setting the 'Connection: close' header.
+func (sp *ServerPool) GetKeepAlive(h http.Handler) *httptest.Server {
+	return sp.getServer(h, true)
 }
 
 // Puts back an idle server into the pool.
