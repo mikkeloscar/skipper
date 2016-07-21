@@ -33,6 +33,7 @@ import (
 	"github.com/zalando/skipper/predicates/source"
 	"github.com/zalando/skipper/proxy"
 	"github.com/zalando/skipper/routing"
+	"github.com/zalando/skipper/tls"
 )
 
 const (
@@ -183,6 +184,10 @@ type Options struct {
 
 	// Experimental feature to handle protocol Upgrades for Websockets, SPDY, etc.
 	ExperimentalUpgrade bool
+
+	// CertPool defines the set of root certificates authorities that the
+	// proxy use when verifying server certificates at the endpoint.
+	CertPool tls.CertPool
 }
 
 func createDataClients(o Options, auth innkeeper.Authentication) ([]routing.DataClient, error) {
@@ -359,6 +364,10 @@ func Run(o Options) error {
 		o.CustomPredicates,
 		updateBuffer})
 
+	if o.CertPool == nil {
+		o.CertPool = &tls.DefaultCertPool{}
+	}
+
 	proxyFlags := proxy.Flags(o.ProxyOptions) | o.ProxyFlags
 	proxyParams := proxy.Params{
 		Routing:                routing,
@@ -367,7 +376,8 @@ func Run(o Options) error {
 		IdleConnectionsPerHost: o.IdleConnectionsPerHost,
 		CloseIdleConnsPeriod:   o.CloseIdleConnsPeriod,
 		FlushInterval:          o.BackendFlushInterval,
-		ExperimentalUpgrade:    o.ExperimentalUpgrade}
+		ExperimentalUpgrade:    o.ExperimentalUpgrade,
+		CertPool:               o.CertPool}
 
 	if o.DebugListener != "" {
 		do := proxyParams

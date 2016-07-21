@@ -29,6 +29,7 @@ import (
 	"github.com/zalando/skipper/filters"
 	"github.com/zalando/skipper/metrics"
 	"github.com/zalando/skipper/routing"
+	tlss "github.com/zalando/skipper/tls"
 )
 
 const (
@@ -113,6 +114,10 @@ type Params struct {
 
 	// Enable the expiremental upgrade protocol feature
 	ExperimentalUpgrade bool
+
+	// CertPool defines the set of root certificates authorities that the
+	// proxy use when verifying server certificates at the endpoint.
+	CertPool tlss.CertPool
 }
 
 // When set, the proxy will skip the TLS verification on outgoing requests.
@@ -277,8 +282,10 @@ func WithParams(o Params) *Proxy {
 		}()
 	}
 
+	tr.TLSClientConfig = &tls.Config{RootCAs: o.CertPool.Get()}
+
 	if o.Flags.Insecure() {
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		tr.TLSClientConfig.InsecureSkipVerify = true
 	}
 
 	m := metrics.Default
