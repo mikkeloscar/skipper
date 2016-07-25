@@ -18,13 +18,13 @@ import "crypto/x509"
 
 // CertPool is an interface for *x509.CertPool.
 type CertPool interface {
-	Get() *x509.CertPool
+	Set(**x509.CertPool)
 }
 
 // DefaultCertPool is the default cert pool.
 type DefaultCertPool struct{}
 
-// Get returns the cert pool.
-func (d *DefaultCertPool) Get() *x509.CertPool {
-	return nil
+// Set sets the cert pool to the provided pool pointer.
+func (d *DefaultCertPool) Set(pool **x509.CertPool) {
+	*pool = nil
 }

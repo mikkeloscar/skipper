@@ -282,7 +282,8 @@ func WithParams(o Params) *Proxy {
 		}()
 	}
 
-	tr.TLSClientConfig = &tls.Config{RootCAs: o.CertPool.Get()}
+	tr.TLSClientConfig = &tls.Config{}
+	o.CertPool.Set(&tr.TLSClientConfig.RootCAs)
 
 	if o.Flags.Insecure() {
 		tr.TLSClientConfig.InsecureSkipVerify = true
